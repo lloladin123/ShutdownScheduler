@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using ShutdownScheduler.Core;
 
 namespace ShutdownScheduler
 {
@@ -12,18 +14,60 @@ namespace ShutdownScheduler
         private const string TaskPrefix = "ShutdownScheduler_";
         private const int DefaultCountdown = 60; // seconds
 
-        public TaskManager(SchedulerService scheduler, ConfigStore store)
+        public TaskManager(SchedulerService scheduler, AppConfig config)
         {
             _scheduler = scheduler;
-            _store = store;
+
+            // 🔹 Master = use local JSON
+            // 🔹 Client = use shared JSON (UNC path)
+            string path = config.Role == NodeRole.Master
+                ? "schedules.json"
+                : config.SharedPath;
+
+            _store = new ConfigStore(path);
         }
 
-        public List<ScheduleItem> GetAllTasks()
+        public System.Collections.Generic.List<ScheduleItem> GetAllTasks()
         {
             return _store.Data.Items.ToList();
         }
 
-        // 🔹 NEW: Delete a specific task by name
+        // 🔹 Export tasks to a shared path (for master)
+        public void ExportTasks(string path)
+        {
+            try
+            {
+                File.Copy("schedules.json", path, overwrite: true);
+                Console.WriteLine($"✅ Tasks exported to {path}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Export failed: {ex.Message}");
+            }
+        }
+
+        // 🔹 Import tasks from a shared path (for client)
+        public void ImportTasks(string path)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine("⚠️ No shared tasks file found.");
+                    return;
+                }
+
+                File.Copy(path, "schedules.json", overwrite: true);
+                _store.Reload(); // reloads tasks from updated file
+                Console.WriteLine($"✅ Tasks imported from {path}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Import failed: {ex.Message}");
+            }
+        }
+
+        // 🔹 Delete specific task
         public void DeleteTaskByName(string name)
         {
             var task = _store.Data.Items.FirstOrDefault(i => i.Name == name);
@@ -40,25 +84,16 @@ namespace ShutdownScheduler
         }
 
         // 🔹 Manual shutdown with popup
-        public void ShutdownNow()
-        {
-            ShowPopup(DefaultCountdown, isRestart: false);
-        }
-
-        public void RestartNow()
-        {
-            ShowPopup(DefaultCountdown, isRestart: true);
-        }
+        public void ShutdownNow() => ShowPopup(DefaultCountdown, isRestart: false);
+        public void RestartNow() => ShowPopup(DefaultCountdown, isRestart: true);
 
         private void ShowPopup(int seconds, bool isRestart = false)
         {
             using (var popup = new ShutdownPopup(_scheduler, seconds, isRestart))
             {
-                popup.ShowDialog(); // ✅ modal popup on top of MainForm
+                popup.ShowDialog(); // modal, blocks until closed
             }
         }
-
-
 
         // 🔹 Get path to our app (so Task Scheduler runs it)
         private string GetAppPath()
@@ -66,14 +101,14 @@ namespace ShutdownScheduler
             return System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!;
         }
 
-        // 🔹 Shift time back one minute (so timer starts early)
+        // 🔹 Shift time back one minute (so popup runs early)
         private string ShiftTimeBackOneMinute(string time)
         {
             DateTime parsed = DateTime.ParseExact(time, "HH:mm", null);
             return parsed.AddMinutes(-1).ToString("HH:mm");
         }
 
-        // 🔹 Shared helper
+        // 🔹 Shared helper for adding tasks
         private bool AddTask(string name, string schtasksArgs, ScheduleItem item)
         {
             if (_store.Data.Items.Any(i => i.Name == name))
@@ -90,6 +125,7 @@ namespace ShutdownScheduler
             return true;
         }
 
+        // 🔹 Schedule daily
         public bool ScheduleDaily(string time)
         {
             string shiftedTime = ShiftTimeBackOneMinute(time);
@@ -109,6 +145,7 @@ namespace ShutdownScheduler
             });
         }
 
+        // 🔹 Schedule weekly
         public bool ScheduleWeekly(string day, string time)
         {
             string shiftedTime = ShiftTimeBackOneMinute(time);
@@ -129,9 +166,9 @@ namespace ShutdownScheduler
             });
         }
 
+        // 🔹 Schedule one-time
         public bool ScheduleOneTime(string date, string time)
         {
-            // Always parse with ISO format so input is consistent
             DateTime target = DateTime.ParseExact($"{date} {time}", "yyyy-MM-dd HH:mm", null);
             if (target <= DateTime.Now)
             {
@@ -139,12 +176,11 @@ namespace ShutdownScheduler
                 return false;
             }
 
-            // Shift back one minute so popup runs early
             DateTime shifted = target.AddMinutes(-1);
 
-            // Format according to local Windows expectations
             string shiftedTime = shifted.ToString("HH:mm");
-            string shiftedDate = shifted.ToString(CultureInfo.CurrentCulture.DateTimeFormat.ShortDatePattern);
+            string shiftedDate = shifted.ToString(
+                CultureInfo.CurrentCulture.DateTimeFormat.ShortDatePattern);
 
             string name = $"{TaskPrefix}{date}_{time.Replace(":", "")}";
             string exePath = GetAppPath();
@@ -162,6 +198,8 @@ namespace ShutdownScheduler
                 Time = time
             });
         }
+
+        // 🔹 Console: view tasks
         public void ViewTasks()
         {
             if (_store.Data.Items.Count == 0)
@@ -185,6 +223,7 @@ namespace ShutdownScheduler
             }
         }
 
+        // 🔹 Console: delete interactive
         public void DeleteTaskInteractive()
         {
             if (_store.Data.Items.Count == 0)
@@ -202,9 +241,11 @@ namespace ShutdownScheduler
             Console.Write("Enter the number OR partial task name to delete: ");
             var input = Console.ReadLine();
 
-            string selectedTask = int.TryParse(input, out int choice) && choice >= 1 && choice <= _store.Data.Items.Count
+            string selectedTask = int.TryParse(input, out int choice) &&
+                                  choice >= 1 && choice <= _store.Data.Items.Count
                 ? _store.Data.Items[choice - 1].Name
-                : _store.Data.Items.FirstOrDefault(t => t.Name.Contains(input, StringComparison.OrdinalIgnoreCase))?.Name;
+                : _store.Data.Items.FirstOrDefault(
+                    t => t.Name.Contains(input, StringComparison.OrdinalIgnoreCase))?.Name;
 
             if (selectedTask != null)
             {
@@ -219,6 +260,7 @@ namespace ShutdownScheduler
             }
         }
 
+        // 🔹 Delete all tasks
         public void DeleteAllTasks(bool useUiConfirm = false)
         {
             if (_store.Data.Items.Count == 0)
@@ -263,10 +305,7 @@ namespace ShutdownScheduler
             foreach (var task in _store.Data.Items.ToList())
             {
                 _scheduler.RunSchtasks($"/delete /tn \"{task.Name}\" /f");
-                if (useUiConfirm)
-                    Console.WriteLine($"✅ Deleted: {task.Name}"); // optional: log in debug
-                else
-                    Console.WriteLine($"✅ Deleted: {task.Name}");
+                Console.WriteLine($"✅ Deleted: {task.Name}");
             }
 
             _store.Data.Items.Clear();

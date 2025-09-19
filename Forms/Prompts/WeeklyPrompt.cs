@@ -5,76 +5,65 @@ namespace ShutdownScheduler.Forms.Prompts
 {
     public class WeeklyPrompt : Form
     {
-        private ComboBox dayCombo;
+        private ComboBox dayBox;
         private DateTimePicker timePicker;
         private Button okBtn;
         private Button cancelBtn;
 
-        public string SelectedDay => dayCombo.SelectedItem?.ToString() ?? "";
+        public string SelectedDay => dayBox.SelectedItem?.ToString() ?? "";
         public string SelectedTime => timePicker.Value.ToString("HH:mm");
 
         public WeeklyPrompt()
         {
-            this.Text = "Pick Weekly Shutdown";
+            this.Text = "Schedule Weekly Shutdown";
             this.Width = 350;
-            this.Height = 200;
+            this.Height = 250;
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
 
-            Label lblDay = new Label { Text = "Day:", Left = 20, Top = 20, AutoSize = true };
-            Label lblTime = new Label { Text = "Time (HH:mm):", Left = 20, Top = 60, AutoSize = true };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 2, Padding = new Padding(10) };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
 
-            dayCombo = new ComboBox
+            // Day
+            layout.Controls.Add(new Label { Text = "Day:", Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 0, 0);
+            dayBox = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            dayBox.Items.AddRange(new[] { "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN" });
+            dayBox.SelectedIndex = 0;
+            layout.Controls.Add(dayBox, 1, 0);
+
+            // Time
+            layout.Controls.Add(new Label { Text = "Time:", Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 0, 1);
+            timePicker = new DateTimePicker { Format = DateTimePickerFormat.Time, ShowUpDown = true, Dock = DockStyle.Fill };
+            layout.Controls.Add(timePicker, 1, 1);
+
+            // Buttons
+            var buttonPanel = new FlowLayoutPanel { Dock = DockStyle.Right, FlowDirection = FlowDirection.RightToLeft, AutoSize = true };
+            okBtn = new Button { Text = "Add", Width = 80, Height = 40 };
+            cancelBtn = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Width = 80, Height = 40 };
+
+            okBtn.Click += (s, e) =>
             {
-                Left = 120,
-                Top = 18,
-                Width = 180,
-                DropDownStyle = ComboBoxStyle.DropDownList
+                if (string.IsNullOrEmpty(SelectedDay))
+                {
+                    MessageBox.Show("⚠️ Please select a valid day.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (string.IsNullOrEmpty(SelectedTime))
+                {
+                    MessageBox.Show("⚠️ Please select a valid time.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                this.DialogResult = DialogResult.OK;
             };
-            dayCombo.Items.AddRange(new[] { "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN" });
 
-            timePicker = new DateTimePicker
-            {
-                Format = DateTimePickerFormat.Time,
-                ShowUpDown = true,
-                Left = 120,
-                Top = 58,
-                Width = 180
-            };
+            buttonPanel.Controls.Add(okBtn);
+            buttonPanel.Controls.Add(cancelBtn);
+            layout.Controls.Add(buttonPanel, 1, 2);
 
-            okBtn = new Button { Text = "OK", Left = 120, Top = 100, Width = 80 };
-            cancelBtn = new Button { Text = "Cancel", Left = 220, Top = 100, Width = 80 };
-
-            okBtn.Click += OkBtn_Click;
-            cancelBtn.Click += (s, e) => this.DialogResult = DialogResult.Cancel;
-
-            this.Controls.Add(lblDay);
-            this.Controls.Add(lblTime);
-            this.Controls.Add(dayCombo);
-            this.Controls.Add(timePicker);
-            this.Controls.Add(okBtn);
-            this.Controls.Add(cancelBtn);
-        }
-
-        private void OkBtn_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrEmpty(SelectedDay))
-            {
-                MessageBox.Show("❌ Please select a valid day.", "Validation",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (string.IsNullOrEmpty(SelectedTime))
-            {
-                MessageBox.Show("❌ Please select a valid time.", "Validation",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            this.DialogResult = DialogResult.OK;
+            this.Controls.Add(layout);
         }
     }
 }

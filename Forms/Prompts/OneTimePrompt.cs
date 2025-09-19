@@ -15,64 +15,49 @@ namespace ShutdownScheduler.Forms.Prompts
 
         public OneTimePrompt()
         {
-            this.Text = "Pick One-Time Shutdown";
-            this.Width = 350;
-            this.Height = 180;
+            this.Text = "Schedule One-Time Shutdown";
+            this.Width = 400;
+            this.Height = 220;
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
 
-            Label lblDate = new Label { Text = "Date:", Left = 20, Top = 20, AutoSize = true };
-            Label lblTime = new Label { Text = "Time:", Left = 20, Top = 60, AutoSize = true };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 2, Padding = new Padding(10) };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
 
-            datePicker = new DateTimePicker
+            // Date
+            layout.Controls.Add(new Label { Text = "Date:", Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 0, 0);
+            datePicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Dock = DockStyle.Fill };
+            layout.Controls.Add(datePicker, 1, 0);
+
+            // Time
+            layout.Controls.Add(new Label { Text = "Time:", Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 0, 1);
+            timePicker = new DateTimePicker { Format = DateTimePickerFormat.Time, ShowUpDown = true, Dock = DockStyle.Fill };
+            layout.Controls.Add(timePicker, 1, 1);
+
+            // Buttons
+            var buttonPanel = new FlowLayoutPanel { Dock = DockStyle.Right, FlowDirection = FlowDirection.RightToLeft, AutoSize = true };
+            okBtn = new Button { Text = "Add", Width = 80, Height = 40 };
+            cancelBtn = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Width = 80, Height = 40 };
+
+            okBtn.Click += (s, e) =>
             {
-                Format = DateTimePickerFormat.Short,
-                Left = 100,
-                Top = 20,
-                Width = 200
+                DateTime target = datePicker.Value.Date + timePicker.Value.TimeOfDay;
+                if (target <= DateTime.Now)
+                {
+                    MessageBox.Show("⚠️ The selected date/time has already passed.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                this.DialogResult = DialogResult.OK;
             };
 
-            timePicker = new DateTimePicker
-            {
-                Format = DateTimePickerFormat.Time,
-                ShowUpDown = true,
-                Left = 100,
-                Top = 60,
-                Width = 200
-            };
+            buttonPanel.Controls.Add(okBtn);
+            buttonPanel.Controls.Add(cancelBtn);
+            layout.Controls.Add(buttonPanel, 1, 2);
 
-            okBtn = new Button { Text = "OK", Left = 100, Top = 100, Width = 80 };
-            cancelBtn = new Button { Text = "Cancel", Left = 200, Top = 100, Width = 80 };
-
-            okBtn.Click += OkBtn_Click;
-            cancelBtn.Click += (s, e) => this.DialogResult = DialogResult.Cancel;
-
-            this.Controls.Add(lblDate);
-            this.Controls.Add(lblTime);
-            this.Controls.Add(datePicker);
-            this.Controls.Add(timePicker);
-            this.Controls.Add(okBtn);
-            this.Controls.Add(cancelBtn);
-        }
-
-        private void OkBtn_Click(object sender, EventArgs e)
-        {
-            DateTime chosen = datePicker.Value.Date + timePicker.Value.TimeOfDay;
-
-            if (chosen <= DateTime.Now)
-            {
-                MessageBox.Show(
-                    "❌ You cannot schedule a shutdown in the past.",
-                    "Invalid Time",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
-                return;
-            }
-
-            this.DialogResult = DialogResult.OK;
+            this.Controls.Add(layout);
         }
     }
 }

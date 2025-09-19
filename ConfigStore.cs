@@ -1,44 +1,39 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
-namespace ShutdownScheduler
+namespace ShutdownScheduler.Core
 {
     public class ConfigStore
     {
-        private readonly string _filePath;
+        public ScheduleData Data { get; private set; } = new();
+        private readonly string _path;
 
-        public ScheduleData Data { get; private set; }
-
-        private static readonly JsonSerializerOptions JsonOptions = new()
+        public ConfigStore(string path)
         {
-            WriteIndented = true,
-            AllowTrailingCommas = true,    // forgiving JSON
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            Converters = { new JsonStringEnumConverter() } // enums saved as strings
-        };
-
-        public ConfigStore(string filePath)
-        {
-            _filePath = filePath;
-            Data = Load(); // load immediately
+            _path = path;
+            Load();
         }
 
-        private ScheduleData Load()
+        private void Load()
         {
             try
             {
-                if (!File.Exists(_filePath))
-                    return new ScheduleData();
+                if (!File.Exists(_path))
+                {
+                    Data = new ScheduleData();
+                    Save(); // create fresh file
+                    return;
+                }
 
-                string json = File.ReadAllText(_filePath);
-                return JsonSerializer.Deserialize<ScheduleData>(json, JsonOptions) ?? new ScheduleData();
+                var json = File.ReadAllText(_path);
+                Data = JsonSerializer.Deserialize<ScheduleData>(json) ?? new ScheduleData();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ Failed to load config file: {_filePath}\n{ex.Message}");
-                return new ScheduleData(); // fallback to empty config
+                Console.WriteLine($"⚠️ Failed to load {_path}: {ex.Message}");
+                Data = new ScheduleData();
             }
         }
 
@@ -46,14 +41,24 @@ namespace ShutdownScheduler
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
-                string json = JsonSerializer.Serialize(Data, JsonOptions);
-                File.WriteAllText(_filePath, json);
+                var json = JsonSerializer.Serialize(Data, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_path, json);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to save config file: {_filePath}\n{ex.Message}");
+                Console.WriteLine($"❌ Failed to save {_path}: {ex.Message}");
             }
         }
+
+        // 🔹 Reload tasks from disk
+        public void Reload()
+        {
+            Load();
+        }
+    }
+
+    public class ScheduleData
+    {
+        public List<ScheduleItem> Items { get; set; } = new();
     }
 }
