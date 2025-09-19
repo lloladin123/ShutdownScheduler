@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<!-- ✅ Keep console -->
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<!-- ✅ Windows APIs -->
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<UseWindowsForms>true</UseWindowsForms>
+		<!-- ✅ Enable WinForms -->
+	</PropertyGroup>
+
+</Project>
