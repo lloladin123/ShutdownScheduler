@@ -13,52 +13,50 @@ namespace ShutdownScheduler.Forms.Prompts
 
         public DailyPrompt()
         {
-            this.Text = "Pick Daily Shutdown Time";
-            this.Width = 300;
-            this.Height = 160;
+            this.Text = "Schedule Daily Shutdown";
+            this.Width = 350;
+            this.Height = 200;
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
 
-            Label lbl = new Label
+            var layout = new TableLayoutPanel
             {
-                Text = "Select time (HH:mm):",
-                Left = 20,
-                Top = 20,
-                AutoSize = true
+                Dock = DockStyle.Fill,
+                RowCount = 2,
+                ColumnCount = 2,
+                Padding = new Padding(10)
             };
 
-            timePicker = new DateTimePicker
-            {
-                Format = DateTimePickerFormat.Time,
-                ShowUpDown = true,
-                Left = 150,
-                Top = 18,
-                Width = 100
-            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
 
-            okBtn = new Button { Text = "OK", Left = 150, Top = 60, Width = 70 };
-            cancelBtn = new Button { Text = "Cancel", Left = 230, Top = 60, Width = 70 };
+            // Time
+            layout.Controls.Add(new Label { Text = "Time:", Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 0, 0);
+            timePicker = new DateTimePicker { Format = DateTimePickerFormat.Time, ShowUpDown = true, Dock = DockStyle.Fill };
+            layout.Controls.Add(timePicker, 1, 0);
+
+            // Buttons
+            var buttonPanel = new FlowLayoutPanel { Dock = DockStyle.Right, FlowDirection = FlowDirection.RightToLeft, AutoSize = true };
+            okBtn = new Button { Text = "Add", Width = 80, Height = 40 };
+            cancelBtn = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Width = 80, Height = 40 };
 
             okBtn.Click += (s, e) =>
             {
                 if (string.IsNullOrEmpty(SelectedTime))
                 {
-                    MessageBox.Show("❌ Please select a valid time.", "Validation",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("⚠️ Please select a valid time.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
-
                 this.DialogResult = DialogResult.OK;
             };
 
-            cancelBtn.Click += (s, e) => this.DialogResult = DialogResult.Cancel;
+            buttonPanel.Controls.Add(okBtn);
+            buttonPanel.Controls.Add(cancelBtn);
+            layout.Controls.Add(buttonPanel, 1, 1);
 
-            this.Controls.Add(lbl);
-            this.Controls.Add(timePicker);
-            this.Controls.Add(okBtn);
-            this.Controls.Add(cancelBtn);
+            this.Controls.Add(layout);
         }
     }
 }

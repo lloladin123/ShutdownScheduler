@@ -44,20 +44,14 @@ namespace ShutdownScheduler
 
             InitializeComponent();
 
-            // ✅ Always keep on top
             this.TopMost = true;
 
-            // ✅ When shown, force it forward and flash if blocked
             this.Shown += (s, e) =>
             {
                 this.WindowState = FormWindowState.Normal;
                 this.BringToFront();
                 this.Activate();
-
-                // 🚀 Try force focus
                 SetForegroundWindow(this.Handle);
-
-                // 🚨 If blocked, flash + jump
                 ForceAttention();
             };
 
@@ -70,34 +64,45 @@ namespace ShutdownScheduler
 
         private void InitializeComponent()
         {
-            this.lblMessage = new Label();
-            this.btnCancel = new Button();
+            this.Text = _isRestart ? "Restart Warning" : "Shutdown Warning";
+            this.Width = 400;
+            this.Height = 250;
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
 
-            this.SuspendLayout();
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Padding = new Padding(20)
+            };
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 70));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
 
-            // Label
-            this.lblMessage.AutoSize = true;
-            this.lblMessage.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.lblMessage.Location = new System.Drawing.Point(20, 20);
-            this.lblMessage.Name = "lblMessage";
-            this.lblMessage.Size = new System.Drawing.Size(250, 25);
+            // Message
+            lblMessage = new Label
+            {
+                Dock = DockStyle.Fill,
+                Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold),
+                TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+                AutoSize = false
+            };
+            layout.Controls.Add(lblMessage, 0, 0);
 
             // Cancel button
-            this.btnCancel.Text = "Cancel";
-            this.btnCancel.Location = new System.Drawing.Point(20, 60);
-            this.btnCancel.Size = new System.Drawing.Size(200, 40);
-            this.btnCancel.Click += BtnCancel_Click;
+            btnCancel = new Button
+            {
+                Text = "Cancel Shutdown",
+                Dock = DockStyle.Fill,
+                Height = 40
+            };
+            btnCancel.Click += BtnCancel_Click;
+            layout.Controls.Add(btnCancel, 0, 1);
 
-            // Form
-            this.ClientSize = new System.Drawing.Size(320, 120);
-            this.Controls.Add(this.lblMessage);
-            this.Controls.Add(this.btnCancel);
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.Text = _isRestart ? "Restart Warning" : "Shutdown Warning";
-
-            this.ResumeLayout(false);
-            this.PerformLayout();
+            this.Controls.Add(layout);
         }
 
         private void OnTimerElapsed(object sender, ElapsedEventArgs e)
@@ -124,8 +129,8 @@ namespace ShutdownScheduler
         private void UpdateMessage()
         {
             lblMessage.Text = _isRestart
-                ? $"System will restart in {_secondsRemaining} seconds."
-                : $"System will shut down in {_secondsRemaining} seconds.";
+                ? $"⚠️ System will restart in {_secondsRemaining} seconds."
+                : $"⚠️ System will shut down in {_secondsRemaining} seconds.";
         }
 
         private void BtnCancel_Click(object sender, EventArgs e)
@@ -141,14 +146,11 @@ namespace ShutdownScheduler
             this.Close();
         }
 
-        // 🔹 Flash + TopMost toggle if focus is blocked
         private void ForceAttention()
         {
-            // Toggle TopMost to push it above everything
             this.TopMost = false;
             this.TopMost = true;
 
-            // Flash taskbar button until focused
             FLASHWINFO fw = new FLASHWINFO
             {
                 cbSize = (uint)Marshal.SizeOf(typeof(FLASHWINFO)),
